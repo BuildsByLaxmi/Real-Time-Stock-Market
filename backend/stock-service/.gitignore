@@ -37,3 +37,6 @@ build/
 .env.*
 !.env.example
 application-local.properties
+
+# Local H2 database files
+data/
