@@ -35,8 +35,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (header != null && header.startsWith(BEARER)) {
             String token = header.substring(BEARER.length()).trim();
             try {
-                if (!blacklist.isRevoked(token)) {
-                    Claims claims = jwtService.parse(token);
+                Claims claims = jwtService.parse(token);
+               if (claims.getId() != null && !blacklist.isRevoked(claims.getId())) {
                     Long userId = Long.valueOf(claims.getSubject());
                     UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                             userId, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));

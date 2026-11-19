@@ -63,7 +63,7 @@ public class AuthService {
 
     public void logout(String token) {
         Claims claims = jwtService.parse(token);
-        blacklist.revoke(token, claims.getExpiration());
+        blacklist.revoke(claims.getId(), claims.getExpiration());
     }
 
     private AuthResponse buildResponse(User user) {

@@ -1,27 +1,35 @@
 package com.example.stockmarket.auth.security;
 
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Date;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Remembers logged-out tokens until they expire naturally.
- * In-memory: fine for a single-server college project (cleared on restart).
+ * Remembers logged-out tokens (by JWT id) until they expire naturally.
+ * Stored in the database, so a logged-out token stays rejected after a server restart.
  */
 @Component
 public class TokenBlacklist {
 
-    private final Map<String, Long> revoked = new ConcurrentHashMap<>();
+    private final RevokedTokenRepository repository;
 
-    public void revoke(String token, Date expiresAt) {
-        long now = System.currentTimeMillis();
-        revoked.entrySet().removeIf(e -> e.getValue() < now);
-        revoked.put(token, expiresAt.getTime());
+    public TokenBlacklist(RevokedTokenRepository repository) {
+        this.repository = repository;
     }
 
-    public boolean isRevoked(String token) {
-        return revoked.containsKey(token);
+    @Transactional
+    public void revoke(String jti, Date expiresAt) {
+        repository.deleteExpired(LocalDateTime.now());
+        if (!repository.existsByJti(jti)) {
+            repository.save(new RevokedToken(jti,
+                    expiresAt.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime()));
+        }
+    }
+
+    public boolean isRevoked(String jti) {
+        return repository.existsByJti(jti);
     }
 }
