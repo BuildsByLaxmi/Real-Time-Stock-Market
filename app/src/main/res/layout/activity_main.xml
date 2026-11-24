@@ -336,10 +336,22 @@
 
                     <!-- Feature Action Buttons -->
                     <Button
-                        android:id="@+id/btnOpenWebChart"
+                        android:id="@+id/btnOpenPriceChart"
+                        style="@style/Widget.Material3.Button.TonalButton"
                         android:layout_width="match_parent"
                         android:layout_height="40dp"
                         android:layout_marginTop="12dp"
+                        android:backgroundTint="#1A335C"
+                        android:text="📈 Price Chart &amp; Reports"
+                        android:textAllCaps="false"
+                        android:textColor="#70A8FF"
+                        android:textSize="12sp" />
+
+                    <Button
+                        android:id="@+id/btnOpenWebChart"
+                        android:layout_width="match_parent"
+                        android:layout_height="40dp"
+                        android:layout_marginTop="8dp"
                         android:backgroundTint="#2A2E39"
                         android:text="🌐 Open Live Web Chart"
                         android:textAllCaps="false"

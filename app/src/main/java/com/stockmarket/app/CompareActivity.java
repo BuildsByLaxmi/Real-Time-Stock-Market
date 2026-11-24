@@ -6,12 +6,27 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
+import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import java.util.HashMap;
+import com.stockmarket.app.analytics.AnalyticsApi;
+import com.stockmarket.app.analytics.Comparison;
+import com.stockmarket.app.analytics.PriceChartView;
+import com.stockmarket.app.analytics.ReportActions;
+import com.stockmarket.app.analytics.StockSeries;
+import com.stockmarket.app.analytics.TextReport;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class CompareActivity extends AppCompatActivity {
@@ -44,7 +59,7 @@ public class CompareActivity extends AppCompatActivity {
         }
     }
 
-    private final Map<String, CompareStock> stockMap = new HashMap<>();
+    private final Map<String, CompareStock> stockMap = new LinkedHashMap<>(); // keeps spinner order stable
 
     private Spinner spStockA;
     private Spinner spStockB;
@@ -63,11 +78,114 @@ public class CompareActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_compare);
 
+        api = new AnalyticsApi(this);
+        reports = new ReportActions(this, api);
+
         initData();
         initViews();
         setupSpinners();
+        setupReports();
 
         btnBackCompare.setOnClickListener(v -> finish());
+    }
+
+    // ---------------------------------------------------------------- Analytics & Reports
+
+    private static final int COMPARE_BARS = 22; // ~1 month of trading days
+
+    private AnalyticsApi api;
+    private ReportActions reports;
+    private Comparison currentComparison;
+    private int requestId;
+
+    private PriceChartView compareChart;
+    private ProgressBar compareProgress;
+    private TextView tvCompareLegend, tvCompareVerdict, tvCompareSource;
+
+    private List<String> selectedSymbols() {
+        String a = spStockA.getSelectedItem() != null ? spStockA.getSelectedItem().toString() : "TCS";
+        String b = spStockB.getSelectedItem() != null ? spStockB.getSelectedItem().toString() : "INFY";
+        return a.equals(b) ? Collections.singletonList(a) : Arrays.asList(a, b);
+    }
+
+    private void setupReports() {
+        compareChart = findViewById(R.id.compareChart);
+        compareProgress = findViewById(R.id.compareProgress);
+        tvCompareLegend = findViewById(R.id.tvCompareLegend);
+        tvCompareVerdict = findViewById(R.id.tvCompareVerdict);
+        tvCompareSource = findViewById(R.id.tvCompareSource);
+
+        Button pdf = findViewById(R.id.btnReportPdf);
+        Button excel = findViewById(R.id.btnReportExcel);
+        Button text = findViewById(R.id.btnReportText);
+        pdf.setOnClickListener(v -> reports.export(ReportActions.PDF, selectedSymbols(), COMPARE_BARS, currentComparison, pdf, excel, text));
+        excel.setOnClickListener(v -> reports.export(ReportActions.EXCEL, selectedSymbols(), COMPARE_BARS, currentComparison, pdf, excel, text));
+        text.setOnClickListener(v -> reports.export(ReportActions.TEXT, selectedSymbols(), COMPARE_BARS, currentComparison, pdf, excel, text));
+        loadPerformance();
+    }
+
+    private void loadPerformance() {
+        if (compareChart == null) return; // spinners fire during setup, before the chart exists
+        int id = ++requestId; // only the latest selection wins
+        compareProgress.setVisibility(View.VISIBLE);
+        api.compare(selectedSymbols(), COMPARE_BARS, new AnalyticsApi.Callback<Comparison>() {
+            @Override
+            public void onResult(Comparison c) {
+                if (id != requestId || isFinishing()) return;
+                compareProgress.setVisibility(View.GONE);
+                currentComparison = c;
+                showPerformance(c);
+            }
+
+            @Override
+            public void onError(String message) {
+                compareProgress.setVisibility(View.GONE);
+            }
+        });
+    }
+
+    private void showPerformance(Comparison c) {
+        compareChart.showPerformance(c.stocks);
+
+        SpannableStringBuilder legend = new SpannableStringBuilder();
+        for (int i = 0; i < c.stocks.size(); i++) {
+            StockSeries s = c.stocks.get(i);
+            if (i > 0) legend.append("     ");
+            int start = legend.length();
+            legend.append("● ").append(s.symbol).append(" ").append(TextReport.pct(s.returnPercent));
+            legend.setSpan(new ForegroundColorSpan(PriceChartView.PALETTE[i % PriceChartView.PALETTE.length]),
+                    start, legend.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+        tvCompareLegend.setText(legend);
+
+        if (c.stocks.size() > 1) {
+            tvCompareVerdict.setText(String.format(Locale.US,
+                    "🏆 %s outperformed over the month · %s was the steadier stock (lower daily volatility).",
+                    c.bestPerformer, c.leastVolatile));
+        } else {
+            tvCompareVerdict.setText("Pick two different stocks to compare their performance.");
+        }
+        tvCompareSource.setText(c.sourceLabel());
+
+        // With live data, replace the static price/change on the header cards.
+        if (c.isLive()) {
+            for (StockSeries s : c.stocks) {
+                boolean isA = s.symbol.equals(String.valueOf(spStockA.getSelectedItem()));
+                boolean isB = s.symbol.equals(String.valueOf(spStockB.getSelectedItem()));
+                int color = s.percentChange >= 0 ? Color.parseColor("#26A69A") : Color.parseColor("#EF5350");
+                String change = TextReport.pct(s.percentChange) + (s.percentChange >= 0 ? " ▲" : " ▼");
+                if (isA) {
+                    tvComparePriceA.setText(s.currency + " " + TextReport.money(s.price));
+                    tvCompareChangeA.setText(change);
+                    tvCompareChangeA.setTextColor(color);
+                }
+                if (isB) {
+                    tvComparePriceB.setText(s.currency + " " + TextReport.money(s.price));
+                    tvCompareChangeB.setText(change);
+                    tvCompareChangeB.setTextColor(color);
+                }
+            }
+        }
     }
 
     private void initData() {
@@ -166,5 +284,7 @@ public class CompareActivity extends AppCompatActivity {
             tvValHigh52B.setText(stockB.high52);
             tvValVolumeB.setText(stockB.volume);
         }
+
+        loadPerformance();
     }
 }

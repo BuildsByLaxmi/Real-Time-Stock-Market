@@ -255,6 +255,17 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // Open Price Chart & Reports (Analytics & Reports module)
+        Button btnOpenPriceChart = findViewById(R.id.btnOpenPriceChart);
+        if (btnOpenPriceChart != null) {
+            btnOpenPriceChart.setOnClickListener(v -> {
+                if (currentStock == null) return;
+                Intent intent = new Intent(this, ChartActivity.class);
+                intent.putExtra(ChartActivity.EXTRA_SYMBOL, currentStock.symbol);
+                startActivity(intent);
+            });
+        }
+
         // Open Comparison Activity
         if (btnOpenCompare != null) {
             btnOpenCompare.setOnClickListener(v -> {

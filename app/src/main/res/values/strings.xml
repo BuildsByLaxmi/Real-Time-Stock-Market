@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">RealTimeStockMarketApp</string>
+    <!-- Backend base URL. Emulator: http://10.0.2.2:8080 ; real phone on the same Wi-Fi: http://<PC-LAN-IP>:8080 -->
+    <string name="api_base_url" translatable="false">http://10.0.2.2:8080</string>
 </resources>

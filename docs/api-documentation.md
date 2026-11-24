@@ -108,6 +108,68 @@ Errors: `404` symbol not in watchlist.
 
 ---
 
+## Analytics & Reports (Member 4) - public
+
+Uses live Twelve Data when `TWELVE_DATA_API_KEY` is set. Without a key (or with `ANALYTICS_DEMO_DATA=true`)
+it serves **simulated demo data**, and every response and report is labelled `DEMO`. Each upstream result is
+cached for 60 seconds, so downloading several formats in a row does not use up the free-plan quota
+(8 requests/minute; every symbol costs 2 requests).
+
+Common query parameters:
+
+| Param | Default | Rules |
+|---|---|---|
+| `symbols` | - | 1-4 comma-separated tickers, e.g. `AAPL,MSFT` (duplicates ignored) |
+| `interval` | `1day` | `1min`, `5min`, `15min`, `30min`, `1h`, `1day`, `1week`, `1month` |
+| `outputsize` | `30` | number of bars, 5-500 |
+
+| Method | Endpoint | Returns |
+|---|---|---|
+| GET | `/api/analytics/history?symbol=AAPL` | Price history + stats for one stock (JSON) |
+| GET | `/api/analytics/compare?symbols=AAPL,MSFT` | Side-by-side comparison (JSON) |
+| GET | `/api/analytics/chart?symbols=AAPL,MSFT` | PNG price chart. Optional `width` (300-2400, default 900) and `height` (200-1600, default 450) |
+| GET | `/api/reports/text?symbols=AAPL,MSFT` | Plain-text report (`.txt`) |
+| GET | `/api/reports/pdf?symbols=AAPL,MSFT` | PDF report: summary, metric table, charts, recent prices |
+| GET | `/api/reports/excel?symbols=AAPL,MSFT` | Excel workbook (`.xlsx`): Summary, Performance (with a native Excel chart), one sheet per stock |
+
+Report endpoints download as an attachment (`stock-comparison_AAPL_MSFT.pdf`). Add `inline=true` to open the
+report in the browser instead. A single symbol gives a single-stock report (`stock-report_AAPL.pdf`).
+
+One stock in the chart shows the close price plus a moving average. Several stocks show % change since the first
+bar, so different price levels can be compared.
+
+`GET /api/analytics/compare?symbols=AAPL,MSFT&outputsize=30` (shortened)
+```json
+{
+  "generatedAt": "2026-11-24T10:58:48Z",
+  "interval": "1day",
+  "outputSize": 30,
+  "dataSource": "TWELVE_DATA",
+  "bestPerformer": "AAPL",
+  "worstPerformer": "MSFT",
+  "leastVolatile": "AAPL",
+  "stocks": [{
+    "quote": { "symbol": "AAPL", "name": "Apple Inc.", "exchange": "NASDAQ", "currency": "USD",
+               "price": 225.8, "change": 2.68, "percentChange": 1.2, "open": 222.65, "high": 226.74,
+               "low": 221.67, "previousClose": 223.12, "volume": 11980000,
+               "fiftyTwoWeekHigh": 237.23, "fiftyTwoWeekLow": 164.08 },
+    "stats": { "startPrice": 211.01, "endPrice": 225.8, "returnPercent": 7.01, "high": 231.57, "low": 200.8,
+               "averageClose": 217.01, "dailyVolatilityPercent": 1.3, "averageVolume": 23760000,
+               "movingAverageWindow": 10, "movingAverage": 225.2, "trend": "UPTREND" },
+    "history": [ { "datetime": "2026-10-14", "open": 210.1, "high": 212.0, "low": 209.5, "close": 211.01, "volume": 18000000 } ],
+    "movingAverage": [ null, null, 210.4 ]
+  }]
+}
+```
+- `history` is oldest first. `movingAverage` lines up with `history` and is `null` until the window is full.
+- `returnPercent` is first close to last close. `dailyVolatilityPercent` is the standard deviation of bar-to-bar returns.
+- `trend` is `UPTREND` when the last close is at or above the moving average.
+
+Errors use `{ "error": "message" }`: `400` bad symbols/interval/size/format; `404` unknown symbol;
+`429` market-data rate limit hit (wait a minute); `502` market-data provider unavailable.
+
+---
+
 ## Android integration notes (for Member 3)
 
 1. Add `implementation("com.squareup.retrofit2:retrofit:2.11.0")`, `retrofit2:converter-gson:2.11.0`
