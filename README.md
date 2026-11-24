@@ -1,4 +1,4 @@
-# Real-Time Stock Market Dashboard
+# Real-Time Stock Market 
 
 A Java-based stock market dashboard: a Spring Boot backend (REST API + MySQL) and an Android app.
 Users register, log in, search stocks, see top gainers/losers, keep a personal watchlist, compare
